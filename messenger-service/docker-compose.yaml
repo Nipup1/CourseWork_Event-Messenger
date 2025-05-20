@@ -1,0 +1,44 @@
+version: '3.8'
+services:
+  messenger:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_pass
+      POSTGRES_DB: messenger
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data_messenger:/var/lib/postgresql/data
+
+  sso:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_pass
+      POSTGRES_DB: sso
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_sso:/var/lib/postgresql/data
+
+  calendar:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_pass
+      POSTGRES_DB: calendar
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data_calendar:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data_messenger:
+  postgres_data_calendar:
+  postgres_data_sso:

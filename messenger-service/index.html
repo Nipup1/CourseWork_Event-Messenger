@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тестирование API чатов</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4 max-w-4xl">
+        <h1 class="text-3xl font-bold mb-4">Тестирование API чатов</h1>
+
+        <!-- Ввод токена -->
+        <div class="mb-4">
+            <label for="token" class="block text-sm font-medium text-gray-700">JWT Токен</label>
+            <input id="token" type="text" class="mt-1 p-2 w-full border rounded-md" placeholder="Введите ваш JWT токен">
+            <button onclick="saveToken()" class="mt-2 bg-blue-500 text-white p-2 rounded-md">Сохранить токен</button>
+        </div>
+
+        <!-- Лог ошибок и результатов -->
+        <div class="mb-4">
+            <h2 class="text-xl font-semibold mb-2">Лог</h2>
+            <div id="log" class="bg-white p-4 border rounded-md h-32 overflow-y-auto text-sm"></div>
+        </div>
+
+        <!-- Создание чата -->
+        <div class="mb-4">
+            <h2 class="text-xl font-semibold mb-2">Создать чат</h2>
+            <input id="chat-name" type="text" class="p-2 border rounded-md w-full mb-2" placeholder="Название чата">
+            <h3 class="text-lg font-medium mb-2">Выберите участников</h3>
+            <div id="user-list" class="space-y-2 max-h-64 overflow-y-auto border p-2 rounded-md"></div>
+            <button onclick="createChat()" class="mt-2 bg-green-500 text-white p-2 rounded-md">Создать чат</button>
+        </div>
+
+        <!-- Список чатов -->
+        <div class="mb-4">
+            <h2 class="text-xl font-semibold mb-2">Мои чаты</h2>
+            <button onclick="loadChats()" class="mb-2 bg-blue-500 text-white p-2 rounded-md">Загрузить чаты</button>
+            <div id="chat-list" class="space-y-2 border p-2 rounded-md max-h-64 overflow-y-auto"></div>
+        </div>
+
+        <!-- Сообщения в чате -->
+        <div class="mb-4">
+            <h2 class="text-xl font-semibold mb-2">Сообщения в чате</h2>
+            <div class="flex mb-2">
+                <input id="message-content" type="text" class="p-2 border rounded-md w-full mr-2"
+                    placeholder="Введите сообщение">
+                <button onclick="sendMessage()" class="bg-blue-500 text-white p-2 rounded-md">Отправить</button>
+            </div>
+            <div id="message-list" class="space-y-2 border p-2 rounded-md max-h-64 overflow-y-auto"></div>
+        </div>
+    </div>
+
+    <script>
+        let token = '';
+        let ws = null;
+        let selectedChatId = null;
+
+        // Статический список пользователей (впишите свои данные)
+        const users = [
+            { user_id: 1, email: "user1@example.com", full_name: "User One" },
+            { user_id: 2, email: "user2@example.com", full_name: "User Two" },
+            { user_id: 3, email: "user3@example.com", full_name: "User Three" },
+            // Добавьте свои user_id, email, full_name
+        ];
+
+        // Логирование сообщений и ошибок
+        function logMessage(message, isError = false) {
+            const logDiv = document.getElementById('log');
+            const p = document.createElement('p');
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            if (isError) p.className = 'text-red-600';
+            logDiv.appendChild(p);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Сохранение токена и инициализация
+        function saveToken() {
+            token = document.getElementById('token').value.trim();
+            if (!token) {
+                logMessage('Введите токен', true);
+                return;
+            }
+            logMessage('Токен сохранён');
+            loadUsers();
+            connectWebSocket();
+        }
+
+        // Загрузка списка пользователей
+        function loadUsers() {
+            if (!token) {
+                logMessage('Сначала сохраните токен', true);
+                return;
+            }
+            const userList = document.getElementById('user-list');
+            userList.innerHTML = '';
+            users.forEach(user => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <label class="flex items-center">
+                        <input type="checkbox" class="user-checkbox mr-2" value="${user.user_id}">
+                        ${user.full_name} (${user.email})
+                    </label>
+                `;
+                userList.appendChild(div);
+            });
+            logMessage('Пользователи загружены');
+        }
+
+        // Создание чата
+        async function createChat() {
+            if (!token) {
+                logMessage('Сначала сохраните токен', true);
+                return;
+            }
+            const chatName = document.getElementById('chat-name').value.trim();
+            const selectedUsers = Array.from(document.querySelectorAll('.user-checkbox:checked'))
+                .map(checkbox => parseInt(checkbox.value));
+            if (!chatName) {
+                logMessage('Введите название чата', true);
+                return;
+            }
+            if (selectedUsers.length < 1) {
+                logMessage('Выберите хотя бы одного участника', true);
+                return;
+            }
+            try {
+                logMessage(`Создание чата "${chatName}" с участниками: ${selectedUsers.join(', ')}`);
+                const response = await fetch('http://localhost:8080/api/chats', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        name: chatName,
+                        member_ids: selectedUsers
+                    })
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Ошибка создания чата: ${response.status} ${errorText}`);
+                }
+                const data = await response.json();
+                logMessage(`Чат создан: ID=${data.chat_id}`);
+                loadChats();
+            } catch (error) {
+                logMessage(`Ошибка: ${error.message}`, true);
+            }
+        }
+
+        // Загрузка списка чатов
+        async function loadChats() {
+            if (!token) {
+                logMessage('Сначала сохраните токен', true);
+                return;
+            }
+            try {
+                logMessage('Загрузка списка чатов...');
+                const response = await fetch('http://localhost:8080/api/chats', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Ошибка загрузки чатов: ${response.status} ${errorText}`);
+                }
+                const data = await response.json();
+                const chatList = document.getElementById('chat-list');
+                chatList.innerHTML = '';
+                data.chats.forEach(chat => {
+                    const div = document.createElement('div');
+                    div.className = 'p-2 border-b cursor-pointer hover:bg-gray-200';
+                    div.textContent = `ID: ${chat.chat_id}, Название: ${chat.name || 'Без названия'}`;
+                    div.onclick = () => {
+                        selectedChatId = chat.chat_id;
+                        loadMessages(chat.chat_id);
+                    };
+                    chatList.appendChild(div);
+                });
+                logMessage(`Чаты загружены: ${data.chats.length}`);
+            } catch (error) {
+                logMessage(`Ошибка: ${error.message}`, true);
+            }
+        }
+
+        // Загрузка сообщений через REST
+        async function loadMessages(chatId) {
+            if (!token) {
+                logMessage('Сначала сохраните токен', true);
+                return;
+            }
+            try {
+                logMessage(`Загрузка сообщений для чата ${chatId}...`);
+                const response = await fetch(`http://localhost:8080/api/chats/${chatId}/messages`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Ошибка загрузки сообщений: ${response.status} ${errorText}`);
+                }
+                const data = await response.json();
+                const messageList = document.getElementById('message-list');
+                messageList.innerHTML = '';
+                data.messages.forEach(msg => {
+                    const div = document.createElement('div');
+                    div.textContent = `От: ${msg.sender_id}, Текст: ${msg.content}, Время: ${new Date(msg.created_at).toLocaleString()}`;
+                    messageList.appendChild(div);
+                });
+                logMessage(`Сообщения загружены: ${data.messages.length}`);
+            } catch (error) {
+                logMessage(`Ошибка: ${error.message}`, true);
+            }
+        }
+
+        // Отправка сообщения
+        function sendMessage() {
+            if (!token) {
+                logMessage('Сначала сохраните токен', true);
+                return;
+            }
+            if (!selectedChatId) {
+                logMessage('Выберите чат', true);
+                return;
+            }
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                logMessage('WebSocket не подключён', true);
+                return;
+            }
+            const content = document.getElementById('message-content').value.trim();
+            if (!content) {
+                logMessage('Введите текст сообщения', true);
+                return;
+            }
+            try {
+                const message = {
+                    chat_id: selectedChatId,
+                    content: content
+                };
+                ws.send(JSON.stringify(message));
+                logMessage(`Сообщение отправлено в чат ${selectedChatId}: ${content}`);
+                document.getElementById('message-content').value = '';
+            } catch (error) {
+                logMessage(`Ошибка отправки сообщения: ${error.message}`, true);
+            }
+        }
+
+        // Подключение WebSocket
+        function connectWebSocket() {
+            if (!token) {
+                logMessage('Сначала сохраните токен', true);
+                return;
+            }
+            ws = new WebSocket(`ws://localhost:8080/api/ws?token=${encodeURIComponent(token)}`);
+            ws.onopen = () => {
+                logMessage('WebSocket соединение установлено');
+            };
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.chat_id === selectedChatId) {
+                        const messageList = document.getElementById('message-list');
+                        const div = document.createElement('div');
+                        div.textContent = `От: ${msg.sender_id}, Текст: ${msg.content}, Время: ${new Date(msg.created_at).toLocaleString()}`;
+                        messageList.appendChild(div);
+                        messageList.scrollTop = messageList.scrollHeight;
+                        logMessage(`Новое сообщение в чате ${msg.chat_id}`);
+                    }
+                } catch (error) {
+                    logMessage(`Ошибка парсинга WebSocket сообщения: ${error.message}`, true);
+                }
+            };
+            ws.onclose = () => {
+                logMessage('WebSocket соединение закрыто', true);
+                ws = null;
+            };
+            ws.onerror = (error) => {
+                logMessage(`WebSocket ошибка: ${error}`, true);
+            };
+        }
+    </script>
+</body>
+
+</html>

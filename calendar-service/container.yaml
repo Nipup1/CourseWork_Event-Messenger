@@ -1,0 +1,10 @@
+local:
+  DATABASE_CALENDAR_URL: "postgresql://postgres:my_pass@localhost:5434/calendar"
+  ADMIN_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQG1haWwucnUiLCJleHAiOjE3NzkzMDA1MDYsImZ1bGxOYW1lIjoiU3lzdGVtIiwiaXNfYWRtaW4iOnRydWUsInVpZCI6MX0.MxkVFE3HbB7ZAdsuhY-rkM4c44dun4aqYIfYHlAwkHY"
+  SECRET: "/pd715/icV6URf1Pp06uzud78FG+XHxvRp3FpIYxkao="
+  WS_URL: "ws://localhost:8080/api/ws?token="
+container:
+  DATABASE_CALENDAR_URL: "postgresql://postgres:my_pass@calendar-db:5432/calendar" 
+  ADMIN_TOKEN: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFkbWluQG1haWwucnUiLCJleHAiOjE3NzkzMDA1MDYsImZ1bGxOYW1lIjoiU3lzdGVtIiwiaXNfYWRtaW4iOnRydWUsInVpZCI6MX0.MxkVFE3HbB7ZAdsuhY-rkM4c44dun4aqYIfYHlAwkHY"
+  SECRET: "/pd715/icV6URf1Pp06uzud78FG+XHxvRp3FpIYxkao="
+  WS_URL: "ws://messenger:8080/api/ws?token="

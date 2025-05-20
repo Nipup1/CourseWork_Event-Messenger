@@ -1,0 +1,104 @@
+version: '3.8'
+
+services:
+  messenger-db:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_pass
+      POSTGRES_DB: messenger
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data_messenger:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  sso-db:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_pass
+      POSTGRES_DB: sso
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_sso:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  calendar-db:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: my_pass
+      POSTGRES_DB: calendar
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data_calendar:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./event-messenger-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - messenger
+      - events
+    networks:
+      - app-network
+
+  messenger:
+    build:
+      context: ./messenger-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - messenger-db
+      - redis
+      - sso
+    networks:
+      - app-network
+
+  sso:
+    build:
+      context: ./sso
+      dockerfile: Dockerfile
+    ports:
+      - "44044:44044"
+    depends_on:
+      - sso-db
+    networks:
+      - app-network
+
+  events:
+    build:
+      context: ./calendar-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - calendar-db
+    networks:
+      - app-network
+
+volumes:
+  postgres_data_messenger:
+  postgres_data_sso:
+  postgres_data_calendar:
+
+networks:
+  app-network:
+    driver: bridge

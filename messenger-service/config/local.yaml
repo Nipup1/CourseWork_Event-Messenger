@@ -1,0 +1,6 @@
+storage_path: "postgres://postgres:my_pass@localhost:5433/messenger"
+redis_path: "localhost:6379"
+secret: "/pd715/icV6URf1Pp06uzud78FG+XHxvRp3FpIYxkao="
+hostname: ":8080"
+grpc_addres: "localhost:44044"
+
