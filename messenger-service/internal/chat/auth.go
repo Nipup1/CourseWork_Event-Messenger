@@ -80,7 +80,7 @@ func (c *AuthService) Register(ctx context.Context, email, password, fullName st
 
 	resp, err := c.Client.Register(ctx, req)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return 0, err
 	}
 
 	return resp.GetUserId(), nil
@@ -96,7 +96,7 @@ func (c *AuthService) Login(ctx context.Context, email, password string) (string
 
 	resp, err := c.Client.Login(ctx, req)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", op, err)
+		return "", err
 	}
 
 	return resp.GetToken(), nil
